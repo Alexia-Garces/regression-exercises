@@ -34,13 +34,6 @@ def new_zillow_data():
     # Read in DataFrame from Codeup db.
     df = pd.read_sql(sql_query, get_connection('zillow'))
     
-    #rename columns
-    df = df.rename(columns = {'bedroomcnt': 'bedrooms', 
-                           'bathroomcnt':'bathrooms',
-                           'calculatedfinishedsquarefeet': 'square_feet',
-                           'taxvaluedollarcnt':'tax_value',
-                           'yearbuilt':'year_built'})
-    
     return df
 
 
@@ -66,6 +59,27 @@ def get_zillow_data():
     return df
 
 ###################### Prepare Zillow Data ######################
+
+def remove_outliers(df, k, col_list):
+    ''' remove outliers from a list of columns in a dataframe 
+        and return that dataframe
+    '''
+    
+    for col in col_list:
+
+        q1, q3 = df[col].quantile([.25, .75])  # get quartiles
+        
+        iqr = q3 - q1   # calculate interquartile range
+        
+        upper_bound = q3 + k * iqr   # get upper bound
+        lower_bound = q1 - k * iqr   # get lower bound
+
+        # return dataframe without outliers
+        
+        df = df[(df[col] > lower_bound) & (df[col] < upper_bound)]
+        
+    return df
+
 def split_continuous(df):
     '''
     Takes in a df
@@ -85,6 +99,7 @@ def split_continuous(df):
     print(f'train -> {train.shape}')
     print(f'validate -> {validate.shape}')
     print(f'test -> {test.shape}')
+    
     return train, validate, test
 
 def prepare_zillow(df):
@@ -93,6 +108,13 @@ def prepare_zillow(df):
     This function takes in the zillow dataframe and retuns the cleaned and prepped dataset
     to use when doing exploratory data analysis
     """
+    #rename columns
+    df = df.rename(columns = {'bedroomcnt': 'bedrooms', 
+                           'bathroomcnt':'bathrooms',
+                           'calculatedfinishedsquarefeet': 'square_feet',
+                           'taxvaluedollarcnt':'tax_value',
+                           'yearbuilt':'year_built'})
+    
     #remove outliers
     df = remove_outliers(df, 1.7, ['bedrooms', 'bathrooms', 'square_feet', 'tax_value', 'taxamount'])
     
@@ -104,7 +126,7 @@ def prepare_zillow(df):
     df = df.drop(columns=['taxamount'])
     
     #split data
-    split_continuious(df)
+    train, validate, test = split_continuous(df)
     
     #impute year_built with mode
     #create imputer
@@ -123,5 +145,5 @@ def wrangle_zillow():
     This functions acquires the zillow data and retuns the cleaned and prepped dataframe
     to use when doing exploratory data analysis
     """
-    train, validate, test = prepare_zillow(get_zillow_data(new_zillow_data()))
+    train, validate, test = prepare_zillow(get_zillow_data())
     return train, validate, test
